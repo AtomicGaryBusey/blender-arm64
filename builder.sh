@@ -23,12 +23,13 @@ sudo apt-get install libxinerama-dev libxcursor-dev libxi-dev libglfw3-dev libbo
 cd "$SCRIPT_DIR"
 
 # Download, verify, and extract Python, ISPC, and the Vulkan SDK
-[ -f "python.tar.xz" ]    || curl -Lo python.tar.xz 'https://www.python.org/ftp/python/3.11.14/Python-3.11.14.tar.xz'
-[ -f "ispc.tar.gz" ]      || curl -Lo ispc.tar.gz 'https://github.com/ispc/ispc/releases/download/v1.28.2/ispc-v1.28.2-linux.aarch64.tar.gz'
-[ -f "vulkansdk.tar.xz" ] || curl -Lo vulkansdk.tar.xz 'https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz'
-echo "2f7d50f6e41d61607022dfeb7741df3a python.tar.xz" | md5sum -c
-echo "c42267566b8c17a2a00668e168f56087b41e55cf1cea047dd0631cf512d011f7 ispc.tar.gz" | sha256sum -c
-echo "241e75b56c91c0d210ed07a7c638ec05a3e5b0e4c66ba9f0ba0f102d823ad6bf vulkansdk.tar.xz" | sha256sum -c
+[ -f "python.tar.xz" ]    || curl -Lo python.tar.xz 'https://www.python.org/ftp/python/3.13.12/Python-3.13.12.tar.xz'
+[ -f "ispc.tar.gz" ]      || curl -Lo ispc.tar.gz 'https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-linux.aarch64.tar.gz'
+[ -f "vulkansdk.tar.xz" ] || curl -Lo vulkansdk.tar.xz 'https://sdk.lunarg.com/sdk/download/1.4.341.1/linux/vulkansdk-linux-x86_64-1.4.341.1.tar.xz'
+[ -f "ceres.tar.gz" ]     || curl -Lo ceres.tar.gz 'http://ceres-solver.org/ceres-solver-2.2.0.tar.gz'
+echo "2a84cd31dd8d8ea8aaff75de66fc1b4b0127dd5799aa50a64ae9a313885b4593 python.tar.xz"    | sha256sum -c
+echo "509399c399ec162d746889458a10cc13797a1aed1c0164b2bd3faddf7d023f13 ispc.tar.gz"      | sha256sum -c
+echo "17c8b7e872d8038fbd4e1239aa8483b495f862ad16b1c58644f7ecd8041d20cc vulkansdk.tar.xz" | sha256sum -c
 tar xf python.tar.xz
 tar xf ispc.tar.gz
 tar xf vulkansdk.tar.xz
@@ -47,9 +48,10 @@ cd "$SCRIPT_DIR"
 [ -d "minizip-ng" ]  || git clone https://github.com/zlib-ng/minizip-ng.git
 
 # Python
-if ! command -v python3.11 > /dev/null 2>&1; then
-    cd Python-3.11.14
-    ./configure --without-doc-strings
+if ! command -v python3.13 > /dev/null 2>&1; then
+    cd Python-3.13.12
+    # installed libssl-dev at the end?
+    ./configure --without-doc-strings --enable-optimizations
     make -j18
     sudo make altinstall
 fi
@@ -68,14 +70,14 @@ cmake --build build --target install
 cd "$SCRIPT_DIR"
 mkdir -pv oidn/build
 cd oidn/build
-cmake -G Ninja -D ISPC_EXECUTABLE="$SCRIPT_DIR"/ispc-v1.28.2-linux.aarch64/bin/ispc ..
+cmake -G Ninja -D ISPC_EXECUTABLE="$SCRIPT_DIR"/ispc-v1.30.0-linux.aarch64/bin/ispc ..
 ninja
 
 # Vulkan
-cd "$SCRIPT_DIR"/1.4.328.1
+cd "$SCRIPT_DIR"/1.4.341.1
 ./vulkansdk --skip-installing-deps --maxjobs vulkan-loader shaderc
 for dir in bin lib include share; do
-    sudo cp -rv "$SCRIPT_DIR"/1.4.328.1/aarch64/$dir /usr/$dir/
+    sudo cp -rv "$SCRIPT_DIR"/1.4.341.1/aarch64/$dir /usr/$dir/
 done
 
 # Embree
@@ -106,12 +108,20 @@ cmake ..
 sudo make -j18
 sudo make install
 
+# ceres
+# http://ceres-solver.org/installation.html#linux
+# cmake -DUSE_CUDA=false ../ceres-solver-2.2.0
+
 # Blender
 cd "$SCRIPT_DIR"/blender
-git switch blender-v5.0-release
-set +e
-make
-set -e
+git switch blender-v5.1-release
+mkdir -pv ../cmake-make
+cd ../cmake-make
+#set +e
+#make
+#set -e
+# Needs mold libfmt-dev libmetis-dev libceres-dev [which has dep on libblas-dev] ?
+# Use the later Launchpad .debs of libfmt-dev?
 cmake -G 'Unix Makefiles' -DOPTIX_INCLUDE_DIR="$HOME"/NVIDIA-OptiX-SDK-9.0.0-linux64-aarch64/include \
 -DWITH_CYCLES_CUDA_BINARIES=ON -DWITH_ALEMBIC=OFF -DWITH_MOD_FLUID=ON \
 -DWITH_BLENDER_THUMBNAILER=ON -DWITH_BUILDINFO=OFF -DWITH_BULLET=ON \
@@ -119,28 +129,23 @@ cmake -G 'Unix Makefiles' -DOPTIX_INCLUDE_DIR="$HOME"/NVIDIA-OptiX-SDK-9.0.0-lin
 -DWITH_CYCLES_DEVICE_OPTIX=ON -DWITH_CYCLES_OSL=OFF -DWITH_CYCLES_PATH_GUIDING=OFF -DWITH_DRACO=ON \
 -DWITH_FFTW3=ON -DWITH_FREESTYLE=ON -DWITH_GHOST_XDND=OFF -DWITH_GMP=OFF -DWITH_HARU=OFF -DWITH_HYDRA=OFF -DWITH_IK_ITASC=ON -DWITH_IK_SOLVER=ON \
 -DWITH_IMAGE_CINEON=ON -DWITH_IMAGE_OPENEXR=ON \
--DWITH_IMAGE_OPENJPEG=ON -DWITH_IMAGE_WEBP=ON -DWITH_INPUT_IME=OFF -DWITH_INPUT_NDOF=OFF -DWITH_IO_GREASE_PENCIL=ON \
--DWITH_JACK=ON -DWITH_MANIFOLD=OFF -DWITH_MATERIALX=OFF \
+-DWITH_IMAGE_OPENJPEG=ON -DWITH_IMAGE_WEBP=ON -DWITH_INPUT_IME=OFF -DWITH_INPUT_NDOF=ON -DWITH_IO_GREASE_PENCIL=ON \
 -DWITH_OPENAL=ON -DWITH_OPENVDB=ON -DOPENVDB_LIBRARY=/usr/local/lib/libopenvdb.so \
 -DOPENVDB_INCLUDE_DIR=/usr/local/include/openvdb -DWITH_OPENVDB_BLOSC=ON -DWITH_PIPEWIRE=OFF -DWITH_PULSEAUDIO=ON \
--DWITH_PYTHON_INSTALL_NUMPY=OFF -DWITH_PYTHON_INSTALL_REQUESTS=OFF -DWITH_PYTHON_INSTALL_ZSTANDARD=OFF \
--DWITH_PYTHON_NUMPY=OFF -DWITH_PYTHON_SAFETY=ON -DWITH_QUADRIFLOW=OFF -DWITH_UI_TESTS_HEADLESS=OFF \
--DWITH_X11_XFIXES=OFF -DWITH_X11_XINPUT=OFF -DWITH_MOD_REMESH=ON \
+-DWITH_PYTHON_INSTALL_NUMPY=ON -DWITH_PYTHON_INSTALL_REQUESTS=ON -DWITH_PYTHON_INSTALL_ZSTANDARD=OFF \
+-DWITH_PYTHON_NUMPY=ON -DWITH_PYTHON_SAFETY=ON -DWITH_QUADRIFLOW=OFF -DWITH_UI_TESTS_HEADLESS=OFF \
+-DWITH_X11_XFIXES=OFF -DWITH_X11_XINPUT=OFF -DWITH_MOD_REMESH=ON -DWITH_PYTHON_INSTALL=ON \
 -DWITH_GHOST_X11=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_WAYLAND_DYNLOAD=OFF -DWITH_OPENCOLORIO=ON \
 -DWITH_XR_OPENXR=OFF -DWITH_USD=OFF -DWITH_CYCLES_DEVICE_CUDA=ON -DWITH_CYCLES_DEVICE_HIP=OFF \
--DWITH_NANOVDB=ON -DWITH_VULKAN_BACKEND=ON -DWITH_CYCLES=ON \
+-DWITH_NANOVDB=ON -DWITH_VULKAN_BACKEND=ON -DWITH_CYCLES=ON -DWITH_CYCLES_PARALLEL_DEVICE_KERNEL_BUILD=ON \
 -DOPENIMAGEDENOISE_LIBRARY="$SCRIPT_DIR"/oidn/build/libOpenImageDenoise.so \
 -DOPENIMAGEDENOISE_OPENIMAGEDENOISE_LIBRARY="$SCRIPT_DIR"/oidn/build/libOpenImageDenoise.so \
 -DOPENIMAGEDENOISE_COMMON_LIBRARY="$SCRIPT_DIR"/oidn/build/libOpenImageDenoise.so \
 -DOPENIMAGEDENOISE_INCLUDE_DIR="$SCRIPT_DIR"/oidn/include \
 -DSSE2NEON_INCLUDE_DIR="$SCRIPT_DIR"/sse2neon \
--DOPENIMAGEIO_INCLUDE_DIR="$SCRIPT_DIR"/OpenImageIO/dist/include \
--DOPENIMAGEIO_LIBRARY="$SCRIPT_DIR"/OpenImageIO/dist/lib/libOpenImageIO.so \
--DOPENIMAGEIO_TOOL="$SCRIPT_DIR"/blender/OpenImageIO/dist/bin/oiiotool \
--DOPENIMAGEIO_UTIL_LIBRARY="$SCRIPT_DIR"/OpenImageIO/dist/lib/libOpenImageIO_Util.so \
--DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_VERBOSE_MAKEFILE=ON -DPYTHON_NUMPY_INCLUDE_DIRS=/usr/local/lib/python3.11/site-packages/numpy/_core/include \
--DOPENCOLORIO_INCLUDE_DIR=/usr/local/include -DWITH_AUDASPACE=OFF \
-../build_linux
+-DCMAKE_PREFIX_PATH="$SCRIPT_DIR"/OpenImageIO/dist \
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_VERBOSE_MAKEFILE=ON -DPYTHON_NUMPY_INCLUDE_DIRS=/usr/local/lib/python3.13/site-packages/numpy/_core/include \
+-DOPENCOLORIO_INCLUDE_DIR=/usr/local/include -DWITH_AUDASPACE=OFF -DWITH_SYSTEM_GLOG=ON ../blender
 
 # Blender launcher
 cat > "$SCRIPT_DIR"/launchBlender <<EOL
@@ -149,23 +154,6 @@ export LD_LIBRARY_PATH=/usr/local/lib:$SCRIPT_DIR/embree/build:$SCRIPT_DIR/oidn/
 $SCRIPT_DIR/build_linux/bin/blender
 EOL
 chmod +x "$SCRIPT_DIR"/launchBlender
-
-cat > "$SCRIPT_DIR"/blender/spark.patch <<EOL
-diff --git a/intern/cycles/util/math_float3.h b/intern/cycles/util/math_float3.h
-index ce517c6d764..6bf6762879a 100644
---- a/intern/cycles/util/math_float3.h
-+++ b/intern/cycles/util/math_float3.h
-@@ -651,7 +651,7 @@ ccl_device_inline auto isequal_mask(const float3 a, const float3 b)
- #if defined(__KERNEL_METAL__)
-   return a == b;
- #elif defined __KERNEL_NEON__
--  return int3(vreinterpretq_m128i_s32(vceqq_f32(a.m128, b.m128)));
-+  return int3(vreinterpretq_m128i_s32(vreinterpretq_s32_u32(vceqq_f32(a.m128, b.m128))));
- #elif defined(__KERNEL_SSE__)
-   return int3(_mm_castps_si128(_mm_cmpeq_ps(a.m128, b.m128)));
- #else
-EOL
-git apply spark.patch
 make -j18
 
 ## Missing from builder.sh: alembic OpenColorIO openssl openvdb
