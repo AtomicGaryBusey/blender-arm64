@@ -23,13 +23,13 @@ sudo apt-get install libxinerama-dev libxcursor-dev libxi-dev libglfw3-dev libbo
 cd "$SCRIPT_DIR"
 
 # Download, verify, and extract Python, ISPC, and the Vulkan SDK
-[ -f "python.tar.xz" ]    || curl -Lo python.tar.xz 'https://www.python.org/ftp/python/3.13.12/Python-3.13.12.tar.xz'
-[ -f "ispc.tar.gz" ]      || curl -Lo ispc.tar.gz 'https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-linux.aarch64.tar.gz'
-[ -f "vulkansdk.tar.xz" ] || curl -Lo vulkansdk.tar.xz 'https://sdk.lunarg.com/sdk/download/1.4.341.1/linux/vulkansdk-linux-x86_64-1.4.341.1.tar.xz'
+[ -f "python.tar.xz" ]    || curl -Lo python.tar.xz 'https://www.python.org/ftp/python/3.14.6/Python-3.14.6.tar.xz'
+[ -f "ispc.tar.gz" ]      || curl -Lo ispc.tar.gz 'https://github.com/ispc/ispc/releases/download/v1.31.0/ispc-v1.31.0-linux.aarch64.tar.gz'
+[ -f "vulkansdk.tar.xz" ] || curl -Lo vulkansdk.tar.xz 'https://sdk.lunarg.com/sdk/download/1.4.350.1/linux/vulkansdk-linux-x86_64-1.4.350.1.tar.xz'
 [ -f "ceres.tar.gz" ]     || curl -Lo ceres.tar.gz 'http://ceres-solver.org/ceres-solver-2.2.0.tar.gz'
-echo "2a84cd31dd8d8ea8aaff75de66fc1b4b0127dd5799aa50a64ae9a313885b4593 python.tar.xz"    | sha256sum -c
-echo "509399c399ec162d746889458a10cc13797a1aed1c0164b2bd3faddf7d023f13 ispc.tar.gz"      | sha256sum -c
-echo "17c8b7e872d8038fbd4e1239aa8483b495f862ad16b1c58644f7ecd8041d20cc vulkansdk.tar.xz" | sha256sum -c
+echo "143b1dddefaec3bd2e21e3b839b34a2b7fb9842272883c576420d605e9f30c63 python.tar.xz"    | sha256sum -c
+echo "660ccac47ff7e0980b89b00a3ebd70201acf55f9e816c127fc28e868ab456193 ispc.tar.gz"      | sha256sum -c
+echo "6cce33c7e5383814150c5041820769d93c65a1fd883002e5949b067045a07daa vulkansdk.tar.xz" | sha256sum -c
 tar xf python.tar.xz
 tar xf ispc.tar.gz
 tar xf vulkansdk.tar.xz
@@ -74,10 +74,10 @@ cmake -G Ninja -D ISPC_EXECUTABLE="$SCRIPT_DIR"/ispc-v1.30.0-linux.aarch64/bin/i
 ninja
 
 # Vulkan
-cd "$SCRIPT_DIR"/1.4.341.1
+cd "$SCRIPT_DIR"/1.4.350.1
 ./vulkansdk --skip-installing-deps --maxjobs vulkan-loader shaderc
 for dir in bin lib include share; do
-    sudo cp -rv "$SCRIPT_DIR"/1.4.341.1/aarch64/$dir /usr/$dir/
+    sudo cp -rv "$SCRIPT_DIR"/1.4.350.1/aarch64/$dir /usr/$dir/
 done
 
 # Embree
@@ -114,7 +114,7 @@ sudo make install
 
 # Blender
 cd "$SCRIPT_DIR"/blender
-git switch blender-v5.1-release
+git switch blender-v5.2-release
 mkdir -pv ../cmake-make
 cd ../cmake-make
 #set +e
@@ -144,8 +144,10 @@ cmake -G 'Unix Makefiles' -DOPTIX_INCLUDE_DIR="$HOME"/NVIDIA-OptiX-SDK-9.0.0-lin
 -DOPENIMAGEDENOISE_INCLUDE_DIR="$SCRIPT_DIR"/oidn/include \
 -DSSE2NEON_INCLUDE_DIR="$SCRIPT_DIR"/sse2neon \
 -DCMAKE_PREFIX_PATH="$SCRIPT_DIR"/OpenImageIO/dist \
--DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_VERBOSE_MAKEFILE=ON -DPYTHON_NUMPY_INCLUDE_DIRS=/usr/local/lib/python3.13/site-packages/numpy/_core/include \
--DOPENCOLORIO_INCLUDE_DIR=/usr/local/include -DWITH_AUDASPACE=OFF -DWITH_SYSTEM_GLOG=ON ../blender
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_VERBOSE_MAKEFILE=ON -DPYTHON_NUMPY_INCLUDE_DIRS=/usr/local/lib/python3.14/site-packages/numpy/_core/include \
+-DOPENCOLORIO_INCLUDE_DIR=/usr/local/include -DWITH_AUDASPACE=OFF -DWITH_SYSTEM_GLOG=ON \
+-DVulkan_INCLUDE_DIR="$VULKAN_SDK/include" -DVulkan_LIBRARY="$VULKAN_SDK/lib/VulkanLoader/lib/libvulkan.so" \
+-DCMAKE_C_FLAGS="-I$VULKAN_SDK/include" -DCMAKE_CXX_FLAGS="-I$VULKAN_SDK/include" ../blender
 
 # Blender launcher
 cat > "$SCRIPT_DIR"/launchBlender <<EOL
