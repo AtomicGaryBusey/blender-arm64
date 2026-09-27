@@ -1,0 +1,21 @@
+# Patches applied to the Blender 5.2.2 tree
+
+Applied in order by `scripts/container/apply_patches.sh` (idempotent: an already-applied patch is
+skipped; a patch that neither applies nor reverse-applies is a hard error). All patches are against
+`d13f752e3b9c4f8c261cda552b1021f8bcc0382c` (v5.2.2). Files that the patches add or change are marked
+with a `blender-gb10:` comment.
+
+| Patch | File(s) | What | Why |
+|---|---|---|---|
+| 0001-deps-ispc-prebuilt-aarch64 | `build_environment/cmake/{ispc,versions,download}.cmake` | On Linux aarch64, `external_ispc` installs the official ISPC v1.30.0 aarch64 release binary (same version as Blender's pin; sha256 `509399c3…3f13`, downloaded and hash-checked like every other source) instead of compiling ISPC against a locally built LLVM. | ISPC is only a compiler for OIDN's CPU kernels. Building it requires LLVM+Clang (the largest dependency by far). Blender's `ispc.diff` only changes a Windows build script, so behaviour is identical. |
+| 0002-deps-harvest-optional | `build_environment/cmake/harvest.cmake` | `install(... OPTIONAL)` in `harvest()`. | Lets `cmake --install` harvest a subset of packages (we build explicit waves instead of every package, e.g. no Intel/AMD GPU stacks). `WITH_STRICT_BUILD_OPTIONS=ON` in the Blender configure catches anything genuinely missing. |
+| 0003-deps-wayland-libdir-lib64 | `build_environment/cmake/wayland.cmake` | `meson setup --libdir lib64`. | Meson defaults to `lib/<multiarch>` on Debian/Ubuntu, while the harvest and pkg-config paths expect `lib64` (Blender's builds run on Rocky Linux). Finding credited to mvalancy/blender-nvidia-gb10 (their fix changed the harvest paths instead). |
+| 0004-deps-ffmpeg-disable-libdrm | `build_environment/cmake/ffmpeg.cmake` | `--disable-libdrm`. | FFmpeg auto-detects libdrm in the build image (kmsgrab/hwcontext_drm), which then needs `-ldrm` at Blender link time and adds an undeclared runtime dependency. Blender does not use those features. Finding credited to mvalancy/blender-nvidia-gb10 (their fix linked libdrm instead). |
+| 0005-deps-oidn-cuda-sm-list | `build_environment/cmake/openimagedenoise.cmake` | Optional `OIDN_CUDA_SM_LIST` (we pass `120`) replaces OIDN's CUDA SASS list `75 80 90 100 120`. | Cuts OIDN's CUDA compile time and memory about 4×. sm_120 SASS runs on GB10 (sm_121). Result: OIDN's CUDA device only supports CC 12.x GPUs, which is the target. Unset → upstream behaviour. |
+| 0006-deps-hash-locked-offline-site-packages | `build_environment/cmake/python_site_packages.cmake` | Optional wheelhouse mode: `pip install --no-index --no-deps --require-hashes -r <lock>`. | Upstream resolves the bundled Python packages against PyPI at build time by version only (no hashes, needs network). The lock (`deps/python-wheels.lock`) pins the same versions with sha256 and lets the deps build run with `--network none`. |
+| 0007-deps-osl-cuda13-min-arch | `build_environment/cmake/osl.cmake` | `CUDA_TARGET_ARCH=sm_75` instead of `sm_50`. | CUDA 13 dropped sm_50…sm_70. Only used by milestone 2 (OSL). |
+| 0008-cmake-optional-vulkan-loader-bundling | `build_files/cmake/platform/platform_unix.cmake` | `WITH_BUNDLED_VULKAN_LOADER` option (default ON = upstream); we set OFF. | The Vulkan loader must match the host's ICD manifests and get distribution security updates, so `libvulkan.so.1` comes from the host (Ubuntu 24.04 ships 1.4.3xx). |
+
+Not needed at 5.2.2 (checked): the OIDN sm_70 removal (OIDN ≥ 2.4 has no sm_70), libffi/flex
+GCC 14 fixes (fixed upstream), the USD Valgrind asm guard (fixed in USD 26.03), a Cycles patch for
+sm_121 (we build the sm_120 cubin, which Cycles loads on sm_121).
