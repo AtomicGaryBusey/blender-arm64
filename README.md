@@ -24,11 +24,26 @@ bundle glibc, libstdc++, libGL/EGL/GLX, `libvulkan.so.1`, NVIDIA driver librarie
 ```bash
 git clone https://github.com/AtomicGaryBusey/blender-arm64.git && cd blender-arm64
 git checkout spark-safe
-./build.sh            # preflight, image, fetch, deps, blender, install, verify  (takes several hours)
+./build.sh            # preflight, image, fetch, deps, blender, install, desktop, verify  (takes several hours)
 blender-gb10          # ~/.local/bin/blender-gb10 -> ~/.local/opt/blender-gb10-5.2.2/blender
 ```
 
-You can also run the steps one at a time: `./build.sh preflight|image|fetch|deps|blender|install|verify|prune|clean-docker`.
+You can also run the steps one at a time: `./build.sh preflight|image|fetch|deps|blender|install|desktop|desktop-uninstall|verify|prune|clean-docker`.
+
+### Desktop integration
+
+`./build.sh desktop` (part of `all`) adds three launchers to the GNOME app grid and makes `.blend`
+files open with this build. It writes only per-user files and needs no sudo:
+
+| Launcher | Starts Blender with |
+|---|---|
+| **Blender 5.2 (GB10)** — default for `.blend` | the default (OpenGL) GPU backend |
+| **Blender 5.2 (GB10, Vulkan)** | `--gpu-backend vulkan` |
+| **Blender 5.2 (GB10, MCP bridge)** | `--online-mode`: online access for this session only, so the MCP add-on's bridge can be started (Preferences > Add-ons > MCP). While the bridge runs, any local program can execute code in Blender; stop it when done. The global "Allow Online Access" preference is left untouched. |
+
+All launchers start in `$HOME`, not the folder of the file being opened. `./build.sh desktop-uninstall`
+removes them. There is no `.blend` thumbnailer for the Files app: GNOME runs thumbnailers in a
+bubblewrap sandbox that only exposes system paths, so it would need a root-owned install under `/usr`.
 
 These environment variables tune the build:
 
@@ -105,7 +120,10 @@ All of that is gone. The build now follows these rules:
      unlabelled BuildKit cache is left behind) and the pinned base image it pulls;
    * `~/.local/opt/blender-gb10-5.2.2` (installed read-only) and the `~/.local/bin/blender-gb10`
      symlink. `build.sh install` only replaces a directory named `blender-gb10-*` that carries its
-     marker file.
+     marker file;
+   * with the `desktop` step: `~/.local/share/applications/blender-gb10*.desktop`, the
+     `blender-gb10` icons under `~/.local/share/icons/hicolor`, and the `application/x-blender`
+     default in `~/.config/mimeapps.list`.
 
    `/usr`, `/opt` and `/etc` are never touched. `verify.sh` keeps Blender's user config, temp files
    and the NVIDIA shader/compute caches inside its evidence directory.

@@ -10,11 +10,14 @@
 #     exactly the pinned commit + patches/ before every build step;
 #   * nothing is written outside this repository (_work/ scratch), the Docker
 #     artifacts it creates (all labelled org.zebeth.blender-gb10=1, plus the pinned
-#     base image it pulls), ~/.local/opt/blender-gb10-<ver> and ~/.local/bin/blender-gb10.
+#     base image it pulls), ~/.local/opt/blender-gb10-<ver> and ~/.local/bin/blender-gb10,
+#     plus (desktop step) blender-gb10* launchers and icons under ~/.local/share and
+#     the .blend default in ~/.config/mimeapps.list.
 #
 # Usage: ./build.sh [step ...]
-#   steps: preflight image fetch deps blender install verify prune clean-docker all
-#   default: all  (= preflight image fetch deps blender install verify)
+#   steps: preflight image fetch deps blender install desktop desktop-uninstall verify prune
+#          clean-docker all
+#   default: all  (= preflight image fetch deps blender install desktop verify)
 set -euo pipefail
 
 REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -159,6 +162,71 @@ install_host() {
   log "  launcher: $LAUNCHER -> $PREFIX/blender"
 }
 
+# ---------------------------------------------------------------------------
+# Desktop integration (per-user, no sudo): three launchers, icon and the .blend default.
+APPS_DIR="$HOME/.local/share/applications"
+ICONS_DIR="$HOME/.local/share/icons/hicolor"
+THUMB_DIR="$HOME/.local/share/thumbnailers"
+DESKTOP_IDS=(blender-gb10 blender-gb10-vulkan blender-gb10-mcp)
+
+desktop_entry() {  # $1 id, $2 name, $3 extra args, $4 comment, $5 MimeType line (or empty)
+  local f="$APPS_DIR/$1.desktop"
+  cat > "$f.tmp" <<EOT
+[Desktop Entry]
+Type=Application
+Name=$2
+GenericName=3D modeler
+Comment=$4
+Exec="$PREFIX/blender"$3 %f
+TryExec=$PREFIX/blender
+Path=$HOME
+Icon=blender-gb10
+Terminal=false
+Categories=Graphics;3DGraphics;
+StartupWMClass=Blender
+PrefersNonDefaultGPU=true
+${5}X-Managed-By=$REPO/build.sh
+EOT
+  mv "$f.tmp" "$f"
+  desktop-file-validate "$f" || log "WARNING: $f does not validate"
+}
+
+desktop() {
+  [[ -x "$PREFIX/blender" && -f "$PREFIX/.blender-gb10-install" ]] || die "no blender-gb10 install at $PREFIX (run ./build.sh install first)"
+  log "desktop integration for $PREFIX"
+  mkdir -p "$APPS_DIR" "$ICONS_DIR/scalable/apps" "$ICONS_DIR/symbolic/apps"
+  install -m 0644 "$PREFIX/blender.svg" "$ICONS_DIR/scalable/apps/blender-gb10.svg"
+  install -m 0644 "$PREFIX/blender-symbolic.svg" "$ICONS_DIR/symbolic/apps/blender-gb10-symbolic.svg"
+  desktop_entry blender-gb10 "Blender 5.2 (GB10)" "" \
+    "3D modeling, animation, rendering (CUDA/OptiX build for the DGX Spark)" "MimeType=application/x-blender;
+"
+  desktop_entry blender-gb10-vulkan "Blender 5.2 (GB10, Vulkan)" " --gpu-backend vulkan" \
+    "Blender with the Vulkan GPU backend" ""
+  desktop_entry blender-gb10-mcp "Blender 5.2 (GB10, MCP bridge)" " --online-mode" \
+    "Online access for this session only; start the bridge in Preferences > Add-ons > MCP. While it runs, local programs can execute code in Blender." ""
+  # No .blend thumbnailer: GNOME runs thumbnailers inside a bubblewrap sandbox that only
+  # exposes system paths, so $PREFIX/blender-thumbnailer (fine when run directly) fails
+  # there. Making it work needs a root-owned install under /usr, which this build avoids.
+  rm -f "$THUMB_DIR/blender-gb10.thumbnailer"
+  update-desktop-database "$APPS_DIR" 2>/dev/null || true
+  gtk-update-icon-cache -f -t -q "$ICONS_DIR" 2>/dev/null || true
+  xdg-mime default blender-gb10.desktop application/x-blender
+  log "  launchers: ${DESKTOP_IDS[*]}; .blend -> blender-gb10.desktop"
+}
+
+desktop_uninstall() {
+  log "removing desktop integration"
+  local id
+  for id in "${DESKTOP_IDS[@]}"; do rm -f "$APPS_DIR/$id.desktop"; done
+  rm -f "$ICONS_DIR/scalable/apps/blender-gb10.svg" "$ICONS_DIR/symbolic/apps/blender-gb10-symbolic.svg" \
+        "$THUMB_DIR/blender-gb10.thumbnailer"
+  # Drop our .blend default (only if it is ours).
+  local mime="$HOME/.config/mimeapps.list"
+  [[ -f "$mime" ]] && sed -i '/^application\/x-blender=blender-gb10\.desktop;*$/d' "$mime"
+  update-desktop-database "$APPS_DIR" 2>/dev/null || true
+  gtk-update-icon-cache -f -t -q "$ICONS_DIR" 2>/dev/null || true
+}
+
 verify() { "$REPO/verify.sh"; }
 
 # Remove intermediate build trees that are not needed to rebuild Blender itself.
@@ -186,10 +254,12 @@ main() {
       deps) deps ;;
       blender) blender ;;
       install) install_host ;;
+      desktop) desktop ;;
+      desktop-uninstall) desktop_uninstall ;;
       verify) verify ;;
       prune) prune ;;
       clean-docker) clean_docker ;;
-      all) preflight; image; fetch; deps; blender; install_host; verify ;;
+      all) preflight; image; fetch; deps; blender; install_host; desktop; verify ;;
       *) die "unknown step '$s'" ;;
     esac
   done
