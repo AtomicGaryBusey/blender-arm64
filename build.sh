@@ -39,7 +39,8 @@ die()  { printf '\033[1;31m[build.sh] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 require_clean_repo() {
   [[ "${BLENDER_GB10_ALLOW_DIRTY:-0}" == 1 ]] && { log "WARNING: BLENDER_GB10_ALLOW_DIRTY=1, not checking the checkout"; return; }
   local dirty
-  dirty="$(git -C "$REPO" status --porcelain --untracked-files=all)"
+  # BUILD_STATE.md is the progress log, not a build input.
+  dirty="$(git -C "$REPO" status --porcelain --untracked-files=all -- . ':!BUILD_STATE.md')"
   [[ -z "$dirty" ]] || die "the repository has uncommitted changes; commit them first (or BLENDER_GB10_ALLOW_DIRTY=1 for experiments):
 $dirty"
 }
@@ -82,7 +83,7 @@ in_container() {
     -e JOBS="$JOBS" -e CUDA_JOBS="$CUDA_JOBS" \
     -e SOURCE_DATE_EPOCH="$BLENDER_COMMIT_EPOCH" \
     -e BLENDER_GB10_REPO_HEAD="$(git -C "$REPO" rev-parse HEAD)" \
-    -e BLENDER_GB10_REPO_DIRTY="$(git -C "$REPO" status --porcelain --untracked-files=all | wc -l)" \
+    -e BLENDER_GB10_REPO_DIRTY="$(git -C "$REPO" status --porcelain --untracked-files=all -- . ':!BUILD_STATE.md' | wc -l)" \
     -e BLENDER_GB10_IMAGE_ID="$(docker image inspect -f '{{.Id}}' "$IMAGE")" \
     -e BLENDER_GB10_M2="${BLENDER_GB10_M2:-0}" \
     -v "$REPO:/repo:ro" \
