@@ -1,0 +1,23 @@
+diff --git a/build_files/build_environment/cmake/harvest.cmake b/build_files/build_environment/cmake/harvest.cmake
+index 13ca69c9..729ecbe4 100644
+--- a/build_files/build_environment/cmake/harvest.cmake
++++ b/build_files/build_environment/cmake/harvest.cmake
+@@ -44,15 +44,18 @@ else()
+     if(pattern STREQUAL "")
+       get_filename_component(dirpath ${to} DIRECTORY)
+       get_filename_component(filename ${to} NAME)
++      # blender-gb10: OPTIONAL so that a partial set of built packages can be harvested.
+       install(
+         FILES ${LIBDIR}/${from}
+         DESTINATION ${HARVEST_TARGET}/${dirpath}
+         RENAME ${filename}
++        OPTIONAL
+       )
+     else()
+       install(
+         DIRECTORY ${LIBDIR}/${from}/
+         DESTINATION ${HARVEST_TARGET}/${to}
++        OPTIONAL
+         USE_SOURCE_PERMISSIONS
+         FILES_MATCHING PATTERN ${pattern}
+         PATTERN "pkgconfig" EXCLUDE

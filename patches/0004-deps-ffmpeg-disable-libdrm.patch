@@ -1,0 +1,14 @@
+diff --git a/build_files/build_environment/cmake/ffmpeg.cmake b/build_files/build_environment/cmake/ffmpeg.cmake
+index d4b13665..f1a934c9 100644
+--- a/build_files/build_environment/cmake/ffmpeg.cmake
++++ b/build_files/build_environment/cmake/ffmpeg.cmake
+@@ -176,6 +176,9 @@ ExternalProject_Add(external_ffmpeg
+       --enable-stripping
+       --enable-runtime-cpudetect
+       --disable-vaapi
++      # blender-gb10: do not auto-detect libdrm from the build image (kmsgrab/hwcontext_drm
++      # are unused and would add an undeclared link/runtime dependency).
++      --disable-libdrm
+       --disable-nonfree
+       --enable-gpl
+       --enable-libmp3lame

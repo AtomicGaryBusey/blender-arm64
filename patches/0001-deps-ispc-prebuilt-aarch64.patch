@@ -1,0 +1,60 @@
+diff --git a/build_files/build_environment/cmake/download.cmake b/build_files/build_environment/cmake/download.cmake
+index 1f55daa8..9d4df172 100644
+--- a/build_files/build_environment/cmake/download.cmake
++++ b/build_files/build_environment/cmake/download.cmake
+@@ -137,6 +137,9 @@ download_source(WL_PROTOCOLS)
+ download_source(WAYLAND)
+ download_source(WAYLAND_WESTON)
+ download_source(ISPC)
++if(BLENDER_PLATFORM_ARM AND UNIX AND NOT APPLE)
++  download_source(ISPC_PREBUILT)  # blender-gb10
++endif()
+ download_source(GMP)
+ download_source(POTRACE)
+ download_source(HARU)
+diff --git a/build_files/build_environment/cmake/ispc.cmake b/build_files/build_environment/cmake/ispc.cmake
+index c93b22ae..fbb318c8 100644
+--- a/build_files/build_environment/cmake/ispc.cmake
++++ b/build_files/build_environment/cmake/ispc.cmake
+@@ -2,6 +2,25 @@
+ #
+ # SPDX-License-Identifier: GPL-2.0-or-later
+ 
++# blender-gb10: on Linux aarch64 use the official ISPC release binary (same version as
++# ISPC_VERSION, sha256-pinned in versions.cmake) instead of building ISPC against a
++# locally built LLVM. ISPC is only a build tool (OIDN CPU kernels); this removes LLVM
++# from the required dependency set.
++if(BLENDER_PLATFORM_ARM AND UNIX AND NOT APPLE)
++  ExternalProject_Add(external_ispc
++    URL file://${PACKAGE_DIR}/${ISPC_PREBUILT_FILE}
++    DOWNLOAD_DIR ${DOWNLOAD_DIR}
++    URL_HASH ${ISPC_PREBUILT_HASH_TYPE}=${ISPC_PREBUILT_HASH}
++    PREFIX ${BUILD_DIR}/ispc
++    CONFIGURE_COMMAND ""
++    BUILD_COMMAND ""
++    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
++      ${BUILD_DIR}/ispc/src/external_ispc/bin ${LIBDIR}/ispc/bin
++    INSTALL_DIR ${LIBDIR}/ispc
++  )
++  return()
++endif()
++
+ if(WIN32)
+   set(ISPC_EXTRA_ARGS_WIN
+     -DFLEX_EXECUTABLE=${LIBDIR}/flexbison/win_flex.exe
+diff --git a/build_files/build_environment/cmake/versions.cmake b/build_files/build_environment/cmake/versions.cmake
+index 07735a60..846ca976 100644
+--- a/build_files/build_environment/cmake/versions.cmake
++++ b/build_files/build_environment/cmake/versions.cmake
+@@ -978,6 +978,11 @@ set(ISPC_VERSION v1.30.0)
+ set(ISPC_URI https://github.com/ispc/ispc/archive/${ISPC_VERSION}.tar.gz)
+ set(ISPC_HASH 97efadfb848ef585b8f02cebd9da93e7)
+ set(ISPC_HASH_TYPE MD5)
++# blender-gb10: official prebuilt ISPC release for Linux aarch64 (same version as above).
++set(ISPC_PREBUILT_URI https://github.com/ispc/ispc/releases/download/${ISPC_VERSION}/ispc-${ISPC_VERSION}-linux.aarch64.tar.gz)
++set(ISPC_PREBUILT_HASH 509399c399ec162d746889458a10cc13797a1aed1c0164b2bd3faddf7d023f13)
++set(ISPC_PREBUILT_HASH_TYPE SHA256)
++set(ISPC_PREBUILT_FILE ispc-${ISPC_VERSION}-linux.aarch64.tar.gz)
+ set(ISPC_FILE ispc-${ISPC_VERSION}.tar.gz)
+ set(ISPC_DEPSBUILDTIMEONLY "Blender ships the produced artifact, but doesn't ship/link with any binary")
+ 

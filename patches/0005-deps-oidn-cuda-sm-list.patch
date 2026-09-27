@@ -1,0 +1,21 @@
+diff --git a/build_files/build_environment/cmake/openimagedenoise.cmake b/build_files/build_environment/cmake/openimagedenoise.cmake
+index 2ddcbd63..12546a73 100644
+--- a/build_files/build_environment/cmake/openimagedenoise.cmake
++++ b/build_files/build_environment/cmake/openimagedenoise.cmake
+@@ -91,6 +91,16 @@ set(OIDN_PATCH_COMMAND
+   ${PATCH_DIR}/oidn.diff
+ )
+ 
++if(BLENDER_PLATFORM_ARM AND UNIX AND NOT APPLE AND OIDN_CUDA_SM_LIST)
++  # blender-gb10: restrict OIDN's CUDA SASS targets (default 75 80 90 100 120) to the
++  # given list, e.g. "120" for GB10 (sm_121 runs sm_120 SASS). Cuts build time ~4x.
++  set(OIDN_PATCH_COMMAND ${OIDN_PATCH_COMMAND} &&
++    sed -i -e "s/OIDN_CUDA_SM_FLAGS 75 80 90 100 120)/OIDN_CUDA_SM_FLAGS 75 ${OIDN_CUDA_SM_LIST})/"
++           -e "s/OIDN_CUDA_SM80_FLAGS 80 90 100 120)/OIDN_CUDA_SM80_FLAGS ${OIDN_CUDA_SM_LIST})/"
++    ${BUILD_DIR}/openimagedenoise/src/external_openimagedenoise/devices/cuda/CMakeLists.txt
++  )
++endif()
++
+ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+   # Replace `attrib.memoryType` with `attrib.type`.
+   # See: https://github.com/ROCm/HIP/pull/2164

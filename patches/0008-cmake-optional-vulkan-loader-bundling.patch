@@ -1,0 +1,19 @@
+diff --git a/build_files/cmake/platform/platform_unix.cmake b/build_files/cmake/platform/platform_unix.cmake
+index 4719eb4b..001d866d 100644
+--- a/build_files/cmake/platform/platform_unix.cmake
++++ b/build_files/cmake/platform/platform_unix.cmake
+@@ -168,7 +168,13 @@ if(WITH_VULKAN_BACKEND)
+     pkg_check_modules(SHADERC REQUIRED shaderc)
+   endif()
+ endif()
+-add_bundled_libraries(vulkan/lib)
++# blender-gb10: the Vulkan loader must come from the host so it matches the host's
++# ICD manifests and receives distribution security updates.
++option(WITH_BUNDLED_VULKAN_LOADER "Bundle the Vulkan loader from LIBDIR into the install" ON)
++mark_as_advanced(WITH_BUNDLED_VULKAN_LOADER)
++if(WITH_BUNDLED_VULKAN_LOADER)
++  add_bundled_libraries(vulkan/lib)
++endif()
+ 
+ function(check_freetype_for_brotli)
+   if((DEFINED HAVE_BROTLI) AND (DEFINED HAVE_BROTLI_INC))

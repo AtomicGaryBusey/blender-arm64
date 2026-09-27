@@ -1,0 +1,14 @@
+diff --git a/build_files/build_environment/cmake/wayland.cmake b/build_files/build_environment/cmake/wayland.cmake
+index d8ca63b4..4844c65c 100644
+--- a/build_files/build_environment/cmake/wayland.cmake
++++ b/build_files/build_environment/cmake/wayland.cmake
+@@ -20,6 +20,9 @@ ExternalProject_Add(external_wayland
+     ${CMAKE_COMMAND} -E env ${WAYLAND_PKG_ENV}
+     ${MESON} setup
+       --prefix ${LIBDIR}/wayland
++      # blender-gb10: meson defaults to lib/<multiarch> on Debian/Ubuntu; the harvest
++      # and pkg-config paths below expect lib64 (the Rocky Linux default).
++      --libdir lib64
+       ${MESON_BUILD_TYPE}
+       ${WAYLAND_EXTRA_OPTIONS}
+       .
