@@ -39,7 +39,7 @@ files open with this build. It writes only per-user files and needs no sudo:
 |---|---|
 | **Blender 5.2 (GB10)** — default for `.blend` | the default (OpenGL) GPU backend |
 | **Blender 5.2 (GB10, Vulkan)** | `--gpu-backend vulkan` |
-| **Blender 5.2 (GB10, MCP bridge)** | `--online-mode`: online access for this session only, so the MCP add-on's bridge can be started (Preferences > Add-ons > MCP). While the bridge runs, any local program can execute code in Blender; stop it when done. The global "Allow Online Access" preference is left untouched. |
+| **Blender 5.2 (GB10, MCP bridge)** | `--gpu-backend vulkan --online-mode`: Vulkan, because under OpenGL on GNOME Wayland the MCP add-on's whole-window screenshot is black for the 3D viewport; online access for this session only, so the MCP add-on's bridge can be started (Preferences > Add-ons > MCP). While the bridge runs, any local program can execute code in Blender; stop it when done. The global "Allow Online Access" preference is left untouched. |
 
 All launchers start in `$HOME`, not the folder of the file being opened. `./build.sh desktop-uninstall`
 removes them. There is no `.blend` thumbnailer for the Files app: GNOME runs thumbnailers in a

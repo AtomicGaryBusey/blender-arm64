@@ -202,7 +202,9 @@ desktop() {
 "
   desktop_entry blender-gb10-vulkan "Blender 5.2 (GB10, Vulkan)" " --gpu-backend vulkan" \
     "Blender with the Vulkan GPU backend" ""
-  desktop_entry blender-gb10-mcp "Blender 5.2 (GB10, MCP bridge)" " --online-mode" \
+  # Vulkan: with OpenGL on GNOME Wayland the MCP add-on's whole-window screenshot comes back
+  # black/garbled for GPU-drawn areas (per-area screenshots are fine); Vulkan captures correctly.
+  desktop_entry blender-gb10-mcp "Blender 5.2 (GB10, MCP bridge)" " --gpu-backend vulkan --online-mode" \
     "Online access for this session only; start the bridge in Preferences > Add-ons > MCP. While it runs, local programs can execute code in Blender." ""
   # No .blend thumbnailer: GNOME runs thumbnailers inside a bubblewrap sandbox that only
   # exposes system paths, so $PREFIX/blender-thumbnailer (fine when run directly) fails
