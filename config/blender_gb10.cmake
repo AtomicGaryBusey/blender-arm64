@@ -5,7 +5,7 @@
 
 set(CMAKE_BUILD_TYPE Release CACHE STRING "")
 set(WITH_LIBS_PRECOMPILED ON CACHE BOOL "")
-set(LIBDIR /work/src/blender/lib/linux_arm64 CACHE PATH "")
+set(LIBDIR /work/lib/linux_arm64 CACHE PATH "")      # harvested deps, outside the (pristine) source tree
 set(WITH_INSTALL_PORTABLE ON CACHE BOOL "")
 set(WITH_STRICT_BUILD_OPTIONS ON CACHE BOOL "")   # a missing library is a configure error, not a silently dropped feature
 set(WITH_BUILDINFO ON CACHE BOOL "")

@@ -15,11 +15,27 @@ source /repo/scripts/pins.env
 
 SRC=/work/src/blender
 B=/work/build/deps
-HARVEST="$SRC/lib/linux_arm64"
+HARVEST=/work/lib/linux_arm64        # outside the source tree (kept pristine)
 JOBS="${JOBS:-12}"
 REQ="$B/site-packages-requirements.txt"
 
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$BLENDER_COMMIT_EPOCH}"
+
+# Every downloaded dependency tarball must also match the repo's sha256 table
+# (Blender pins several packages by MD5/SHA1 only, some fetched over http).
+verify_sha256() {
+  local n=0 f
+  ( cd /work/packages/deps && grep -v "^#" /repo/deps/source-sha256.txt | sha256sum --quiet --strict -c - ) \
+    || { echo "ERROR: dependency tarball sha256 mismatch (deps/source-sha256.txt)" >&2; exit 1; }
+  for f in /work/packages/deps/*; do
+    grep -q "  $(basename "$f")\$" /repo/deps/source-sha256.txt || { echo "ERROR: $(basename "$f") is not in deps/source-sha256.txt" >&2; exit 1; }
+    n=$((n+1))
+  done
+  echo "[deps.sh] sha256 verified for $n dependency tarballs"
+}
+
 configure() {
+  /repo/scripts/container/check_source.sh
   mkdir -p "$B" /work/packages/deps
   # pip requirements with hashes from the repo's lock file.
   awk '!/^#/ && NF==3 {print $1 " --hash=sha256:" $3}' /repo/deps/python-wheels.lock > "$REQ"
@@ -34,6 +50,7 @@ configure() {
     -DOIDN_CUDA_SM_LIST="$OIDN_CUDA_SM_LIST" \
     -DPYTHON_SITE_PACKAGES_WHEELHOUSE=/work/packages/wheels \
     -DPYTHON_SITE_PACKAGES_REQUIREMENTS="$REQ"
+  verify_sha256
 }
 
 # Waves (targets pull in their own dependencies). A later wave only needs the earlier
@@ -73,6 +90,8 @@ harvest() {
 
 build() {
   [[ -f "$B/Makefile" ]] || { echo "run 'deps.sh configure' first" >&2; exit 1; }
+  /repo/scripts/container/check_source.sh
+  verify_sha256
   local waves=("$@") w
   [[ ${#waves[@]} -gt 0 ]] || waves=(w1 w2 w3 w4 w5 w6 w7)
   cd "$B"

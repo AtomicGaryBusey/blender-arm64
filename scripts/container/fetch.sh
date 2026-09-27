@@ -28,8 +28,12 @@ git_pin() {
 
 git_pin "$SRC/blender"   "$BLENDER_GIT_URL" "$BLENDER_COMMIT"
 git_pin "$SRC/optix-dev" "$OPTIX_GIT_URL"   "$OPTIX_COMMIT"
+[[ -z "$(git -C "$SRC/optix-dev" status --porcelain --untracked-files=all)" ]] \
+  || { echo "ERROR: $SRC/optix-dev has local modifications" >&2; exit 1; }
+[[ "$(git -C "$SRC/blender" log -1 --format=%ct)" == "$BLENDER_COMMIT_EPOCH" ]] \
+  || { echo "ERROR: BLENDER_COMMIT_EPOCH does not match the commit time" >&2; exit 1; }
 
-# Apply this repository's patches to the Blender tree (idempotent).
+# Reset the Blender tree to the pin and apply this repository's patches (verified).
 /repo/scripts/container/apply_patches.sh
 
 # Pure-python wheels for Blender's bundled Python site-packages, hash-locked.
@@ -44,4 +48,8 @@ while read -r name url sha; do
     mv "$f.tmp" "$f"
   fi
 done < /repo/deps/python-wheels.lock
+# Drop wheels that are no longer in the lock (e.g. after a version bump).
+for f in /work/packages/wheels/*.whl; do
+  grep -q "/$(basename "$f") " /repo/deps/python-wheels.lock || rm -f "$f"
+done
 echo "wheels verified: $(ls /work/packages/wheels | wc -l)"
