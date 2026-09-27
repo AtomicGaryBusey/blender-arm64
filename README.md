@@ -72,8 +72,17 @@ is only used as a compiler for OIDN's CPU kernels.
   `WITH_STRICT_BUILD_OPTIONS=ON`, so a missing library fails the configure step instead of silently
   dropping a feature. `WITH_CYCLES_DEBUG` is **off**.
 
-Milestone 2 is optional and is enabled with `DEPS_WAVES="m2_llvm m2"` and `BLENDER_GB10_M2=1`. It
-adds LLVM, OSL (Cycles OSL) and USD/Hydra. BUILD_STATE.md records what the current build includes.
+`./build.sh` alone builds milestone 1 (everything above). Milestone 2 adds LLVM, OSL (Cycles OSL
+on the CPU and on OptiX) and USD/Hydra; the reference install was built with:
+
+```bash
+./build.sh preflight image fetch deps                     # milestone-1 dependencies
+JOBS=10 DEPS_WAVES="m2_llvm m2" ./build.sh deps           # LLVM, OSL, USD (+MaterialX)
+BLENDER_GB10_M2=1 ./build.sh blender install verify       # Blender with OSL + USD/Hydra
+```
+
+The first OSL render on OptiX JIT-compiles the OSL kernels, which takes about 10 minutes on GB10;
+the driver caches the result for later runs. BUILD_STATE.md records what the current build includes.
 
 ## Security model
 
