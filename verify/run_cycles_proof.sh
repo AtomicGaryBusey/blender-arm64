@@ -51,4 +51,9 @@ run optix_optixden   OPTIX OPTIX
 # Strict variant using the add-on CLI override (engine.py --cycles-device -> _cycles.set_device_override;
 # no matching device => dummy device "Found no Cycles device of the specified type" => render error)
 run optix_override   OPTIX NONE --cycles-device OPTIX
+# Milestone 2: Open Shading Language on the CPU and on OptiX (WITH_CYCLES_OSL builds only).
+if [ "${VERIFY_OSL:-0}" = 1 ]; then
+  run cpu_osl        CPU   NONE --osl
+  run optix_osl      OPTIX NONE --osl
+fi
 exit $fail

@@ -71,6 +71,16 @@ section "3. Cycles device enumeration"
 rc=${PIPESTATUS[0]}
 if [[ $rc -eq 0 ]]; then record devices PASS; else record devices FAIL; fi
 
+# Milestone-2 builds (OSL/USD) get the extra OSL render and USD checks automatically.
+if grep -q '^milestone2=1$' "$T/blender-gb10-BUILDINFO.txt" 2>/dev/null; then M2=1; else M2=0; fi
+export VERIFY_OSL=$M2
+
+section "3b. features (build options, bundled Python modules, Alembic/USD round trip)"
+"$T/blender" -b --factory-startup --python-exit-code 3 --python "$V/probe_features.py" \
+  -- $([[ $M2 == 1 ]] && echo --m2) 2>&1 | tee "$E/3b_features.log"
+rc=${PIPESTATUS[0]}
+if [[ $rc -eq 0 ]]; then record features PASS; else record features FAIL; fi
+
 section "4. Cycles renders (CUDA, OptiX, OIDN GPU)"
 bash "$V/run_cycles_proof.sh" "$T" "$E/4_cycles" 2>&1 | tee "$E/4_cycles.log"
 rc=${PIPESTATUS[0]}
@@ -83,7 +93,7 @@ if [[ $rc -eq 0 ]]; then record vulkan PASS; else record vulkan FAIL; fi
 
 section "summary"
 fail=0
-for k in version portable hardening devices cycles vulkan; do
+for k in version portable hardening devices features cycles vulkan; do
   printf '%-9s %s\n' "$k" "${RESULT[$k]:-NOT RUN}"
   [[ "${RESULT[$k]:-}" == PASS ]] || fail=1
 done | tee "$E/summary.txt"

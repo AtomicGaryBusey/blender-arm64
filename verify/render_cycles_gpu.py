@@ -33,6 +33,9 @@ else:
     scene.cycles.device = 'CPU'
 
 c = scene.cycles
+if "--osl" in argv:
+    c.shading_system = True      # Open Shading Language (CPU, or OptiX on the GPU)
+    print("PROOF shading_system=OSL")
 c.samples = SPP
 c.use_adaptive_sampling = False
 c.use_denoising = DEN != "NONE"
