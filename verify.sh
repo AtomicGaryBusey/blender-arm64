@@ -20,8 +20,14 @@ T="$(realpath "${1:-$HOME/.local/opt/blender-gb10-${BLENDER_VERSION}}")"
 E="$(realpath -m "${2:-$REPO/_work/evidence/$(date -u +%Y%m%dT%H%M%SZ)}")"
 LAUNCHER="${BLENDER_GB10_LAUNCHER:-$HOME/.local/bin/blender-gb10}"
 V="$REPO/verify"
-mkdir -p "$E"
+mkdir -p "$E/tmp"
 unset LD_LIBRARY_PATH
+# Keep every temporary file (ours and Blender's) inside the evidence directory.
+export TMPDIR="$E/tmp"
+# The GUI/Vulkan-on-display proofs need the host session; default to the local one.
+if [[ -z "${DISPLAY:-}" && -S /tmp/.X11-unix/X0 ]]; then export DISPLAY=:0; fi
+if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "/run/user/$(id -u)" ]]; then export XDG_RUNTIME_DIR="/run/user/$(id -u)"; fi
+if [[ -z "${WAYLAND_DISPLAY:-}" && -S "${XDG_RUNTIME_DIR:-/nonexistent}/wayland-0" ]]; then export WAYLAND_DISPLAY=wayland-0; fi
 declare -A RESULT
 section() { echo; echo "=== $1 ==="; }
 record() { RESULT[$1]=$2; echo "[$1] $2"; }

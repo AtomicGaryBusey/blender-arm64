@@ -15,7 +15,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 T=$(realpath "$1"); PROBE=${2:-$here/probe_cycles_devices.py}
 fail=0; err() { echo "FAIL: $*"; fail=1; }
 is_elf() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(head -c4 "$1" 2>/dev/null | od -An -c | tr -d ' ')" = '177ELF' ]; }
-CLEAN_ENV=(env -i HOME="$HOME" PATH=/usr/bin:/bin USER="${USER:-}" DISPLAY="${DISPLAY:-}" \
+CLEAN_ENV=(env -i HOME="$HOME" PATH=/usr/bin:/bin USER="${USER:-}" DISPLAY="${DISPLAY:-}" TMPDIR="${TMPDIR:-/tmp}" \
            WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}")
 
 n=0
@@ -47,7 +47,7 @@ done < <(find "$T" -type f -print0)
 echo "static: checked $n ELF files"
 
 # Runtime check with the loader's own trace (catches dlopen).
-tmp=$(mktemp -d)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/check_portable.XXXXXX")
 "${CLEAN_ENV[@]}" LD_DEBUG=files LD_DEBUG_OUTPUT="$tmp/ld" \
   "$T/blender" -b --factory-startup --python-exit-code 3 --python "$PROBE" >"$tmp/probe.log" 2>&1
 rc=$?; echo "probe exit=$rc (log $tmp/probe.log)"; [ $rc -eq 0 ] || err "R0 probe failed rc=$rc"

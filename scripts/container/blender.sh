@@ -14,6 +14,10 @@ CUDA_JOBS="${CUDA_JOBS:-2}"
 [[ -d "$SRC/lib/linux_arm64/python" ]] || { echo "deps not harvested yet ($SRC/lib/linux_arm64)" >&2; exit 1; }
 gcc --version | head -1 | grep -q ' 14\.' || { echo "gcc-14 required" >&2; exit 1; }
 
+# Reproducible build date: the pinned Blender commit's timestamp.
+SOURCE_DATE_EPOCH="$(git -C "$SRC" log -1 --format=%ct)"
+export SOURCE_DATE_EPOCH
+
 extra=()
 if [[ "${BLENDER_GB10_M2:-0}" == 1 ]]; then
   extra+=(-DWITH_CYCLES_OSL=ON -DWITH_USD=ON -DWITH_HYDRA=ON)
