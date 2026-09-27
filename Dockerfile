@@ -20,8 +20,10 @@ ARG BUILDER_UID=1000
 ARG BUILDER_GID=1000
 
 # Ubuntu packages come from the noble archive (dpkg-managed, inside the image only).
-# The resolved package list is written to /etc/blender-gb10/dpkg-manifest.txt so each
-# image build is auditable; build.sh copies it into the repo's build record.
+# snapshot.ubuntu.com does not serve ubuntu-ports (arm64), so the archive cannot be frozen
+# at a timestamp. Instead the resolved package list is written to
+# /etc/blender-gb10/dpkg-manifest.txt and build.sh compares it with the committed
+# deps/dpkg-manifest.lock (warning, or error with BLENDER_GB10_STRICT_APT=1).
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -54,8 +56,8 @@ ENV PATH=/usr/local/cuda-13.0/bin:${PATH} \
     CUDA_HOME=/usr/local/cuda-13.0 \
     CUDAToolkit_ROOT=/usr/local/cuda-13.0 \
     LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-    CC=/usr/local/bin/gcc CXX=/usr/local/bin/g++ \
-    SOURCE_DATE_EPOCH=1745584760
+    CC=/usr/local/bin/gcc CXX=/usr/local/bin/g++
+# SOURCE_DATE_EPOCH is not baked in: build.sh passes the pinned Blender commit time.
 
 USER builder
 WORKDIR /work
