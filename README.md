@@ -86,33 +86,59 @@ The upstream `builder.sh` this fork started from had several unsafe practices:
 
 All of that is gone. The build now follows these rules:
 
-1. **No sudo, no root.** `build.sh` refuses to run as root. Every compile step runs in the
-   container as the unprivileged `builder` user with the host UID, `--cap-drop ALL`,
-   `--security-opt no-new-privileges` and a memory cap.
+1. **No sudo, no root.** `build.sh` refuses to run as root. Every container, including the
+   preflight GPU check, runs as the host UID with `--cap-drop ALL` and
+   `--security-opt no-new-privileges`; build containers also get a memory cap.
 2. **Nothing is written outside a fixed set of places**:
    * this repository's git-ignored `_work/` directory;
-   * the Docker artifacts the build creates, all labelled `org.zebeth.blender-gb10=1`;
-   * `~/.local/opt/blender-gb10-5.2.2`;
-   * the `~/.local/bin/blender-gb10` symlink.
+   * the Docker artifacts the build creates (all labelled `org.zebeth.blender-gb10=1`, including
+     every intermediate image layer, because the image is built with the classic builder so no
+     unlabelled BuildKit cache is left behind) and the pinned base image it pulls;
+   * `~/.local/opt/blender-gb10-5.2.2` (installed read-only) and the `~/.local/bin/blender-gb10`
+     symlink. `build.sh install` only replaces a directory named `blender-gb10-*` that carries its
+     marker file.
 
-   `/usr`, `/opt` and `/etc` are never touched.
-3. **Everything is pinned.**
-   * Git sources are pinned by commit and verified after fetch.
-   * Tarballs are pinned by the hash Blender pins. The hash is checked at configure time with
-     `FORCE_CHECK_HASH=ON` and again at extraction.
-   * ISPC is pinned by sha256.
-   * Python wheels are pinned by sha256 and installed offline with `pip --require-hashes`.
+   `/usr`, `/opt` and `/etc` are never touched. `verify.sh` keeps Blender's user config, temp files
+   and the NVIDIA shader/compute caches inside its evidence directory.
+3. **Everything is pinned and checked.**
+   * Git sources are fetched by commit and verified. Before every build step the Blender tree is
+     checked to be *exactly* the pinned commit plus `patches/` (no untracked files, and a diff
+     identical to applying the committed patches to a scratch index). Builds refuse to run from a
+     checkout of this repository with uncommitted changes.
+   * Dependency tarballs are checked against the hash Blender pins (at configure time with
+     `FORCE_CHECK_HASH=ON` and again at extraction) **and** against this repository's sha256 table
+     (`deps/source-sha256.txt`), because Blender pins some packages by MD5/SHA1 only and fetches a
+     few over plain HTTP.
+   * ISPC is pinned by sha256. Python wheels are pinned by sha256 and installed offline with
+     `pip --require-hashes`.
    * The base image is pinned by digest, and CUDA comes from that image.
-4. **Network access only when fetching.** Only the `fetch` step (sources, wheels, dependency
-   tarballs) has network access. Dependency and Blender builds run with `--network none`, so the
-   build cannot pull anything that was not pinned and verified beforehand.
-5. **Reproducible from the scripts.** There is no separate, unsigned prebuilt release. You build it
-   yourself, and `verify.sh` checks the result.
+4. **Network access is limited.** The `image` step (apt inside the image build), the `fetch`
+   step (sources, wheels, dependency tarballs) and the preflight image pull use the network.
+   Dependency and Blender builds run with `--network none`, so they cannot pull anything that was
+   not pinned and verified beforehand.
+5. **Traceable output.** The install tree contains `blender-gb10-BUILDINFO.txt` (repository
+   commit, Blender commit, sha256 of the applied patch set, builder image ID) and the image's
+   package list. There is no separate, unsigned prebuilt release; you build it yourself, and
+   `verify.sh` checks the result.
+6. **No library injection.** Blender's upstream `blender-launcher` script is removed from the
+   install: it prepends to `LD_LIBRARY_PATH` and `LD_PRELOAD`, which leaves an empty entry when
+   they are unset (so libraries load from the current directory), and it may preload a host
+   libtbb. The binary finds its libraries through `$ORIGIN/lib`. `verify.sh` includes a regression
+   test that plants a fake `libXau.so.6` in the working directory.
+
+Deviations from Blender's own pins, for security: the bundled `requests` (2.32.3 → 2.34.2,
+CVE-2024-47081), `urllib3` (2.4.0 → 2.8.0, CVE-2025-50181/50182 and later fixes) and `certifi`
+(CA bundle refresh) are newer than Blender 5.2.2 ships (`scripts/tools/gen_wheel_lock.py`).
 
 The model has known limits:
 
-* Ubuntu packages inside the image follow the `noble` archive. Their resolved versions are recorded, not frozen.
+* Ubuntu packages inside the image follow the `noble` archive. `snapshot.ubuntu.com` does not serve
+  `ubuntu-ports` (arm64), so the archive cannot be frozen. Instead, the resolved package list is
+  compared with the committed `deps/dpkg-manifest.lock` on every image build (a warning, or an
+  error with `BLENDER_GB10_STRICT_APT=1`).
 * The NVIDIA base image and the ISPC binary are trusted vendor binaries, pinned by digest and hash.
+* The sha256 table was recorded from downloads that matched Blender's pins; for MD5-pinned
+  packages it is trust-on-first-use with an MD5 cross-check.
 
 ## Verifying a build
 
@@ -121,7 +147,7 @@ The model has known limits:
 ```
 
 This runs on the host, without `LD_LIBRARY_PATH`, and stores logs and images under
-`_work/evidence/…`. It checks five things:
+`_work/evidence/…`. It checks these things:
 
 1. **Version.** `blender-gb10 --version` reports 5.2.2.
 2. **Portability** (`verify/check_portable.sh`):
@@ -132,6 +158,8 @@ This runs on the host, without `LD_LIBRARY_PATH`, and stores logs and images und
    * only an allow-list of host libraries (glibc, libstdc++, GL/Vulkan loaders, NVIDIA driver,
      X11/Wayland/audio clients) comes from the host;
    * an `LD_DEBUG` trace of a real run shows `libcuda`/`libnvoptix` coming from the host driver directory.
+   Also (section 2b): the build record shows a clean checkout and a passing source check, the
+   installed tree is read-only, and no library is loaded from the current directory.
 3. **Devices.** Cycles lists the NVIDIA GB10 for CUDA and OPTIX.
 4. **Cycles renders.** It renders on CPU, CUDA and OptiX, with OIDN on the GPU (CUDA and OptiX
    devices), and with the OptiX denoiser. GPU use is proven by Cycles' own log lines

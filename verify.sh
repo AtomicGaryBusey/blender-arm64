@@ -22,8 +22,15 @@ LAUNCHER="${BLENDER_GB10_LAUNCHER:-$HOME/.local/bin/blender-gb10}"
 V="$REPO/verify"
 mkdir -p "$E/tmp"
 unset LD_LIBRARY_PATH
-# Keep every temporary file (ours and Blender's) inside the evidence directory.
+# Keep every file Blender, the driver or we write inside the evidence directory:
+# temp files, Blender user config/scripts/datafiles, CUDA/OptiX/GL shader caches.
 export TMPDIR="$E/tmp"
+export BLENDER_USER_CONFIG="$E/home/config" BLENDER_USER_SCRIPTS="$E/home/scripts" \
+       BLENDER_USER_DATAFILES="$E/home/datafiles" BLENDER_USER_EXTENSIONS="$E/home/extensions" \
+       BLENDER_USER_RESOURCES="$E/home/resources"
+export CUDA_CACHE_PATH="$E/home/nv-cuda-cache" OPTIX_CACHE_PATH="$E/home/nv-optix-cache" \
+       __GL_SHADER_DISK_CACHE_PATH="$E/home/nv-gl-cache" XDG_CACHE_HOME="$E/home/cache"
+mkdir -p "$E/home"
 # The GUI/Vulkan-on-display proofs need the host session; default to the local one.
 if [[ -z "${DISPLAY:-}" && -S /tmp/.X11-unix/X0 ]]; then export DISPLAY=:0; fi
 if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "/run/user/$(id -u)" ]]; then export XDG_RUNTIME_DIR="/run/user/$(id -u)"; fi
@@ -45,6 +52,19 @@ if tail -1 "$E/2_portable.log" | grep -q 'PORTABLE-CHECK: PASS'; then record por
 # Also keep a plain ldd of the binary for the record.
 env -i PATH=/usr/bin:/bin ldd "$T/blender" > "$E/2_ldd_blender.txt" 2>&1
 
+section "2b. hardening (build record, read-only tree, no library injection from CWD)"
+{
+  echo "--- build record"; cat "$T/blender-gb10-BUILDINFO.txt" 2>&1
+  ok=1
+  grep -q '^repo_uncommitted_files=0$' "$T/blender-gb10-BUILDINFO.txt" 2>/dev/null || { echo "FAIL: build record missing or built from a dirty checkout"; ok=0; }
+  grep -q '^source_check=SOURCE-CHECK: OK' "$T/blender-gb10-BUILDINFO.txt" 2>/dev/null || { echo "FAIL: no source check in the build record"; ok=0; }
+  w=$(find "$T" ! -type l -perm /222 | head -5)
+  if [[ -n "$w" ]]; then echo "FAIL: writable files in the installed tree:"; echo "$w"; ok=0; else echo "PASS: installed tree is read-only"; fi
+  bash "$V/cwd_injection.sh" "$T" "$LAUNCHER" "$E/2b_cwdinj" || ok=0
+  [[ $ok == 1 ]] && echo "HARDENING: PASS" || echo "HARDENING: FAIL"
+} 2>&1 | tee "$E/2b_hardening.log"
+if grep -q 'HARDENING: PASS' "$E/2b_hardening.log"; then record hardening PASS; else record hardening FAIL; fi
+
 section "3. Cycles device enumeration"
 "$T/blender" -b --factory-startup --python-exit-code 3 --python "$V/probe_cycles_devices.py" \
   -- --need CUDA,OPTIX --name GB10 2>&1 | tee "$E/3_devices.log"
@@ -63,7 +83,7 @@ if [[ $rc -eq 0 ]]; then record vulkan PASS; else record vulkan FAIL; fi
 
 section "summary"
 fail=0
-for k in version portable devices cycles vulkan; do
+for k in version portable hardening devices cycles vulkan; do
   printf '%-9s %s\n' "$k" "${RESULT[$k]:-NOT RUN}"
   [[ "${RESULT[$k]:-}" == PASS ]] || fail=1
 done | tee "$E/summary.txt"
