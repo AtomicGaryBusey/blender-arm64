@@ -45,7 +45,7 @@ declare -A WAVE=(
   [w4]="external_openvdb external_opensubdiv external_alembic external_materialx"
   [w5]="external_ffmpeg external_sndfile external_flac external_openal external_fftw3_double external_fftw3_float"
   [w6]="external_shaderc external_vulkan_loader external_vulkan_memory_allocator external_spirv_reflect external_wayland external_wayland_protocols external_xr_openxr_sdk"
-  [w7]="external_epoxy external_freetype external_harfbuzz external_fribidi external_gmp external_gmpxx external_potrace external_haru external_manifold external_eigen external_ceres external_draco external_meshoptimizer external_rubberband external_pugixml"
+  [w7]="external_epoxy external_freetype external_harfbuzz external_fribidi external_gmp external_potrace external_haru external_manifold external_eigen external_ceres external_draco external_meshoptimizer external_rubberband external_pugixml"
   [m2_llvm]="external_llvm"
   [m2]="external_osl external_usd"
 )
